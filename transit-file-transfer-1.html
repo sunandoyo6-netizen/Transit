@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transit — Kirim file antar perangkat</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+  :root{
+    --bg: #10131c;
+    --panel: #1a1f2e;
+    --panel-raised: #212739;
+    --line: #2c3346;
+    --amber: #ffb100;
+    --amber-dim: #8a6420;
+    --teal: #2dd4bf;
+    --text: #e9e7e1;
+    --text-dim: #8c93a8;
+    --danger: #ff6b6b;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--bg);
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 48px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 48px);
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    min-height: 100vh;
+    display:flex;
+    justify-content:center;
+    padding: 32px 16px 80px;
+  }
+
+  .wrap{ width:100%; max-width: 640px; }
+
+  header{ margin-bottom: 28px; }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing: 0.18em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  h1{
+    font-size: 34px;
+    font-weight: 800;
+    margin: 0 0 6px;
+    letter-spacing: -0.02em;
+  }
+  h1 span{ color: var(--amber); }
+  .sub{ color: var(--text-dim); font-size: 15px; line-height:1.5; margin:0; }
+
+  .tabs{
+    display:flex;
+    gap:2px;
+    margin: 28px 0 0;
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 4px;
+    border: 1px solid var(--line);
+  }
+  .tab{
+    flex:1;
+    padding: 11px 0;
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color: var(--text-dim);
+    background: transparent;
+    border:none;
+    border-radius:7px;
+    cursor:pointer;
+    transition: all .18s ease;
+  }
+  .tab.active{ background: var(--amber); color:#1a1206; font-weight:700; }
+
+  .board{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-top: 16px;
+    padding: 24px;
+  }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .dropzone{
+    border: 1.5px dashed var(--line);
+    border-radius: 10px;
+    padding: 36px 16px;
+    text-align:center;
+    cursor:pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color: var(--amber);
+    background: rgba(255,177,0,0.05);
+  }
+  .dropzone .icon{ font-size: 28px; margin-bottom:10px; }
+  .dropzone .main{ font-size:14.5px; font-weight:600; margin-bottom:4px; }
+  .dropzone .hint{ font-size:12.5px; color: var(--text-dim); }
+  input[type=file]{ display:none; }
+
+  .code-block{
+    margin-top: 22px;
+    text-align:center;
+  }
+  .code-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.18em;
+    color: var(--text-dim);
+    text-transform:uppercase;
+    margin-bottom:12px;
+  }
+  .flaps{
+    display:flex;
+    justify-content:center;
+    gap:6px;
+    margin-bottom: 14px;
+  }
+  .flap{
+    width: 44px;
+    height: 58px;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:700;
+    font-size: 26px;
+    color: var(--amber);
+    position:relative;
+    overflow:hidden;
+  }
+  .flap::after{
+    content:'';
+    position:absolute;
+    top:50%; left:0; right:0;
+    height:1px;
+    background: rgba(0,0,0,0.4);
+  }
+  @keyframes flapIn{
+    0%{ transform: rotateX(90deg); opacity:0; }
+    100%{ transform: rotateX(0deg); opacity:1; }
+  }
+  .flap.animate{ animation: flapIn .38s ease forwards; }
+  @media (prefers-reduced-motion: reduce){ .flap.animate{ animation:none; } }
+
+  .copy-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color: var(--teal);
+    background: transparent;
+    border: 1px solid rgba(45,212,191,0.35);
+    padding: 7px 14px;
+    border-radius: 7px;
+    cursor:pointer;
+  }
+  .copy-btn:hover{ background: rgba(45,212,191,0.08); }
+
+  .filelist{ margin-top: 20px; display:flex; flex-direction:column; gap:10px; }
+  .file-row{
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 12px 14px;
+  }
+  .file-row .top{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .file-name{ font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .file-meta{ font-family:'IBM Plex Mono', monospace; font-size:11px; color: var(--text-dim); white-space:nowrap; }
+  .progress-track{ height:4px; background: var(--line); border-radius:2px; margin-top:9px; overflow:hidden; }
+  .progress-fill{ height:100%; background: var(--amber); width:0%; transition: width .15s ease; border-radius:2px; }
+  .progress-fill.done{ background: var(--teal); }
+  .file-status{ font-family:'IBM Plex Mono', monospace; font-size:11px; color: var(--text-dim); margin-top:6px; }
+
+  .dl-btn{
+    margin-top:10px;
+    width:100%;
+    padding: 9px 0;
+    background: var(--amber);
+    color:#1a1206;
+    border:none;
+    border-radius:7px;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    font-family:'Manrope',sans-serif;
+  }
+  .dl-btn:disabled{ opacity:0.5; cursor:default; }
+
+  .code-entry{
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    margin-bottom: 20px;
+  }
+  .digit-input{
+    width: 42px;
+    height: 54px;
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 24px;
+    font-weight:700;
+    color: var(--text);
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    outline:none;
+  }
+  .digit-input:focus{ border-color: var(--amber); }
+
+  .connect-btn{
+    display:block;
+    width:100%;
+    padding: 12px 0;
+    background: var(--amber);
+    color:#1a1206;
+    border:none;
+    border-radius:8px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .connect-btn:disabled{ opacity:0.45; cursor:default; }
+
+  .status-msg{
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color: var(--text-dim);
+    margin-top: 14px;
+    min-height: 16px;
+  }
+  .status-msg.error{ color: var(--danger); }
+  .status-msg.ok{ color: var(--teal); }
+
+  .notice{
+    margin-top: 22px;
+    padding: 12px 14px;
+    background: rgba(255,177,0,0.06);
+    border: 1px solid rgba(255,177,0,0.2);
+    border-radius: 9px;
+    font-size: 12px;
+    line-height:1.5;
+    color: var(--text-dim);
+  }
+  .notice b{ color: var(--amber); font-weight:600; }
+
+  .divider{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin: 24px 0;
+    color: var(--text-dim);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+  }
+  .divider::before, .divider::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background: var(--line);
+  }
+
+  .text-section label{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color: var(--text-dim);
+    margin-bottom:8px;
+  }
+  .text-input{
+    width:100%;
+    min-height: 96px;
+    resize: vertical;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family:'Manrope', sans-serif;
+    font-size: 14px;
+    line-height:1.5;
+    outline:none;
+  }
+  .text-input:focus{ border-color: var(--amber); }
+  .send-text-btn{
+    margin-top: 10px;
+    padding: 10px 18px;
+    background: transparent;
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    border-radius: 8px;
+    font-weight:700;
+    font-size: 13px;
+    cursor:pointer;
+    font-family:'Manrope', sans-serif;
+  }
+  .send-text-btn:hover{ background: rgba(255,177,0,0.08); }
+  .send-text-btn:disabled{ opacity:0.5; cursor:default; }
+  .text-send-status{
+    margin-top:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color: var(--text-dim);
+    min-height:14px;
+  }
+
+  .received-text-block{
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .received-text-block .top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .received-text-block .label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color: var(--text-dim);
+  }
+  .received-text-content{
+    width:100%;
+    min-height:80px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family:'Manrope', sans-serif;
+    font-size: 13.5px;
+    line-height:1.5;
+    resize: vertical;
+  }
+  .text-actions{ display:flex; gap:8px; margin-top:10px; }
+  .text-actions button, .text-actions a{
+    flex:1;
+    text-align:center;
+    padding: 8px 0;
+    border-radius:7px;
+    font-family:'Manrope', sans-serif;
+    font-weight:700;
+    font-size:12.5px;
+    cursor:pointer;
+    text-decoration:none;
+  }
+  .btn-copy{ background: var(--amber); color:#1a1206; border:none; }
+  .btn-open{ background: transparent; color: var(--teal); border:1px solid rgba(45,212,191,0.4); }
+
+  .reset-row{ margin-top:18px; text-align:center; }
+  .reset-link{
+    background:none; border:none; color: var(--text-dim);
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px;
+    text-decoration:underline; cursor:pointer; letter-spacing:0.04em;
+  }
+  .reset-link:hover{ color: var(--text); }
+
+  footer{
+    text-align:center;
+    margin-top: 26px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Transit · antar perangkat</div>
+    <h1>Kirim file, <span>tanpa kabel.</span></h1>
+    <p class="sub">Buka di laptop, kirim kode. Buka di ponsel, masukkan kode. Semua format file didukung.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="send">Kirim</button>
+    <button class="tab" data-tab="receive">Terima</button>
+  </div>
+
+  <div class="board">
+    <!-- SEND -->
+    <section class="panel active" id="panel-send">
+      <div class="dropzone" id="dropzone">
+        <div class="icon">📤</div>
+        <div class="main">Ketuk untuk pilih file, atau seret ke sini</div>
+        <div class="hint">File besar makin lama waktu unggahnya — sabar ya</div>
+      </div>
+      <input type="file" id="fileInput" multiple>
+
+      <div class="code-block" id="codeBlock" style="display:none;">
+        <div class="code-label">Kode transfer</div>
+        <div class="flaps" id="flaps"></div>
+        <button class="copy-btn" id="copyBtn">Salin kode</button>
+      </div>
+
+      <div class="filelist" id="sendFileList"></div>
+
+      <div class="divider">atau kirim teks</div>
+
+      <div class="text-section">
+        <label for="textInput">Pesan, link, atau salinan teks panjang</label>
+        <textarea class="text-input" id="textInput" placeholder="Tempel link atau tulis pesan di sini…"></textarea>
+        <button class="send-text-btn" id="sendTextBtn">Kirim pesan</button>
+        <div class="text-send-status" id="textSendStatus"></div>
+      </div>
+
+      <div class="notice">
+        <b>Perlu tahu:</b> file dan teks disimpan sementara di penyimpanan bersama dan bisa diakses siapa pun yang tahu kodenya. Jangan pakai untuk dokumen sensitif. Kode berlaku selama sesi ini — buat kode baru untuk transfer berikutnya.
+      </div>
+
+      <div class="reset-row"><button class="reset-link" id="newTransferBtn" style="display:none;">+ Mulai transfer baru</button></div>
+    </section>
+
+    <!-- RECEIVE -->
+    <section class="panel" id="panel-receive">
+      <div class="code-label" style="text-align:center; margin-bottom:14px;">Masukkan kode dari pengirim</div>
+      <div class="code-entry" id="codeEntry"></div>
+      <button class="connect-btn" id="connectBtn">Hubungkan</button>
+      <div class="status-msg" id="receiveStatus"></div>
+      <div id="receiveTextContainer"></div>
+      <div class="filelist" id="receiveFileList"></div>
+    </section>
+  </div>
+
+  <footer>DIBUAT DENGAN CLAUDE · PENYIMPANAN SEMENTARA</footer>
+</div>
+
+<script>
+const CHUNK_SIZE = 2097150; // divisible by 3, keeps base64 chunk boundaries clean, ~2.8MB per key
+const CODE_LEN = 6;
+
+// ---------- tab switching ----------
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ---------- helpers ----------
+function fmtBytes(n){
+  if(n < 1024) return n + ' B';
+  if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  if(n < 1024*1024*1024) return (n/(1024*1024)).toFixed(1) + ' MB';
+  return (n/(1024*1024*1024)).toFixed(2) + ' GB';
+}
+function genCode(){
+  let c = '';
+  for(let i=0;i<CODE_LEN;i++) c += Math.floor(Math.random()*10);
+  return c;
+}
+function readSliceAsBase64(slice){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=> {
+      const result = reader.result; // data:...;base64,XXXX
+      const idx = result.indexOf(',');
+      resolve(result.slice(idx+1));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(slice);
+  });
+}
+
+// ---------- SEND flow ----------
+let currentCode = null;
+let sendFilesState = []; // {id,name,size,type,chunks,uploadedChunks}
+let sendHasText = false;
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const codeBlock = document.getElementById('codeBlock');
+const flapsEl = document.getElementById('flaps');
+const sendFileList = document.getElementById('sendFileList');
+const newTransferBtn = document.getElementById('newTransferBtn');
+
+dropzone.addEventListener('click', ()=> fileInput.click());
+dropzone.addEventListener('dragover', e=>{ e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', ()=> dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e=>{
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  if(e.dataTransfer.files.length) handleNewFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e=>{
+  if(e.target.files.length) handleNewFiles(e.target.files);
+  fileInput.value = '';
+});
+newTransferBtn.addEventListener('click', ()=>{
+  currentCode = null;
+  sendFilesState = [];
+  sendHasText = false;
+  sendFileList.innerHTML = '';
+  codeBlock.style.display = 'none';
+  newTransferBtn.style.display = 'none';
+  document.getElementById('textInput').value = '';
+  document.getElementById('textSendStatus').textContent = '';
+});
+
+function renderFlaps(code){
+  flapsEl.innerHTML = '';
+  [...code].forEach((digit, i)=>{
+    const f = document.createElement('div');
+    f.className = 'flap animate';
+    f.style.animationDelay = (i*60)+'ms';
+    f.textContent = digit;
+    flapsEl.appendChild(f);
+  });
+}
+
+document.getElementById('copyBtn').addEventListener('click', ()=>{
+  if(!currentCode) return;
+  navigator.clipboard.writeText(currentCode).then(()=>{
+    const btn = document.getElementById('copyBtn');
+    const old = btn.textContent;
+    btn.textContent = 'Tersalin ✓';
+    setTimeout(()=> btn.textContent = old, 1400);
+  });
+});
+
+function ensureCode(){
+  if(!currentCode){
+    currentCode = genCode();
+    codeBlock.style.display = 'block';
+    renderFlaps(currentCode);
+    newTransferBtn.style.display = 'inline-block';
+  }
+  return currentCode;
+}
+
+async function handleNewFiles(fileListRaw){
+  ensureCode();
+  const files = Array.from(fileListRaw);
+  for(const file of files){
+    const id = 'f' + Date.now() + Math.random().toString(36).slice(2,7);
+    const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+    const state = { id, name: file.name, size: file.size, type: file.type || 'application/octet-stream', chunks: totalChunks, uploadedChunks: 0 };
+    sendFilesState.push(state);
+    renderSendRow(state);
+    uploadFile(file, state).catch(err=>{
+      console.error(err);
+      setSendRowError(state.id, 'Gagal mengunggah. Coba lagi.');
+    });
+  }
+}
+
+function renderSendRow(state){
+  const row = document.createElement('div');
+  row.className = 'file-row';
+  row.id = 'row-'+state.id;
+  row.innerHTML = `
+    <div class="top">
+      <div class="file-name">${escapeHtml(state.name)}</div>
+      <div class="file-meta">${fmtBytes(state.size)}</div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="fill-${state.id}"></div></div>
+    <div class="file-status" id="status-${state.id}">Mengunggah…</div>
+  `;
+  sendFileList.appendChild(row);
+}
+function setSendRowError(id, msg){
+  const s = document.getElementById('status-'+id);
+  if(s){ s.textContent = msg; s.style.color = 'var(--danger)'; }
+}
+function updateSendProgress(state){
+  const pct = Math.round((state.uploadedChunks/state.chunks)*100);
+  const fill = document.getElementById('fill-'+state.id);
+  const status = document.getElementById('status-'+state.id);
+  if(fill) fill.style.width = pct + '%';
+  if(state.uploadedChunks >= state.chunks){
+    if(fill) fill.classList.add('done');
+    if(status){ status.textContent = 'Siap diambil ✓'; status.style.color = 'var(--teal)'; }
+  } else if(status){
+    status.textContent = `Mengunggah… ${pct}%`;
+  }
+}
+
+async function uploadFile(file, state){
+  for(let i=0;i<state.chunks;i++){
+    const start = i * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, file.size);
+    const slice = file.slice(start, end);
+    const b64 = await readSliceAsBase64(slice);
+    await window.storage.set(`transit:${currentCode}:${state.id}:chunk:${i}`, b64, true);
+    state.uploadedChunks++;
+    updateSendProgress(state);
+  }
+  await saveMeta();
+}
+
+async function saveMeta(){
+  const meta = {
+    files: sendFilesState.map(s=>({ id:s.id, name:s.name, size:s.size, type:s.type, chunks:s.chunks })),
+    hasText: sendHasText,
+    createdAt: Date.now()
+  };
+  await window.storage.set(`transit:${currentCode}:meta`, JSON.stringify(meta), true);
+}
+
+// ---------- send text/link ----------
+const textInput = document.getElementById('textInput');
+const sendTextBtn = document.getElementById('sendTextBtn');
+const textSendStatus = document.getElementById('textSendStatus');
+
+sendTextBtn.addEventListener('click', async ()=>{
+  const value = textInput.value.trim();
+  if(!value){
+    textSendStatus.textContent = 'Tulis atau tempel sesuatu dulu.';
+    textSendStatus.style.color = 'var(--danger)';
+    return;
+  }
+  ensureCode();
+  sendTextBtn.disabled = true;
+  textSendStatus.style.color = 'var(--text-dim)';
+  textSendStatus.textContent = 'Mengirim…';
+  try{
+    await window.storage.set(`transit:${currentCode}:text`, JSON.stringify({ value, updatedAt: Date.now() }), true);
+    sendHasText = true;
+    await saveMeta();
+    textSendStatus.textContent = 'Terkirim ✓ — bagikan kodenya ke perangkat lain.';
+    textSendStatus.style.color = 'var(--teal)';
+  } catch(err){
+    console.error(err);
+    textSendStatus.textContent = 'Gagal mengirim. Coba lagi.';
+    textSendStatus.style.color = 'var(--danger)';
+  }
+  sendTextBtn.disabled = false;
+});
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ---------- RECEIVE flow ----------
+const codeEntry = document.getElementById('codeEntry');
+const connectBtn = document.getElementById('connectBtn');
+const receiveStatus = document.getElementById('receiveStatus');
+const receiveFileList = document.getElementById('receiveFileList');
+
+for(let i=0;i<CODE_LEN;i++){
+  const inp = document.createElement('input');
+  inp.className = 'digit-input';
+  inp.maxLength = 1;
+  inp.inputMode = 'numeric';
+  inp.pattern = '[0-9]*';
+  inp.dataset.idx = i;
+  codeEntry.appendChild(inp);
+}
+const digitInputs = () => Array.from(codeEntry.querySelectorAll('.digit-input'));
+
+codeEntry.addEventListener('input', e=>{
+  const t = e.target;
+  t.value = t.value.replace(/[^0-9]/g,'').slice(0,1);
+  if(t.value){
+    const inputs = digitInputs();
+    const idx = inputs.indexOf(t);
+    if(idx < inputs.length - 1) inputs[idx+1].focus();
+  }
+  maybeAutoConnect();
+});
+codeEntry.addEventListener('keydown', e=>{
+  if(e.key === 'Backspace' && !e.target.value){
+    const inputs = digitInputs();
+    const idx = inputs.indexOf(e.target);
+    if(idx > 0) inputs[idx-1].focus();
+  }
+});
+codeEntry.addEventListener('paste', e=>{
+  const text = (e.clipboardData.getData('text')||'').replace(/[^0-9]/g,'').slice(0,CODE_LEN);
+  if(text){
+    e.preventDefault();
+    const inputs = digitInputs();
+    text.split('').forEach((ch,i)=>{ if(inputs[i]) inputs[i].value = ch; });
+    inputs[Math.min(text.length, CODE_LEN)-1].focus();
+    maybeAutoConnect();
+  }
+});
+function maybeAutoConnect(){
+  const code = digitInputs().map(i=>i.value).join('');
+  if(code.length === CODE_LEN) connect(code);
+}
+connectBtn.addEventListener('click', ()=>{
+  const code = digitInputs().map(i=>i.value).join('');
+  if(code.length === CODE_LEN) connect(code);
+  else setReceiveStatus('Masukkan 6 digit kode dulu.', 'error');
+});
+
+function setReceiveStatus(msg, kind){
+  receiveStatus.textContent = msg;
+  receiveStatus.className = 'status-msg' + (kind ? ' '+kind : '');
+}
+
+const receiveTextContainer = document.getElementById('receiveTextContainer');
+
+async function connect(code){
+  setReceiveStatus('Mencari transfer…');
+  receiveFileList.innerHTML = '';
+  receiveTextContainer.innerHTML = '';
+  connectBtn.disabled = true;
+  try{
+    const res = await window.storage.get(`transit:${code}:meta`, true);
+    if(!res || !res.value){
+      setReceiveStatus('Kode tidak ditemukan. Periksa lagi kodenya.', 'error');
+      connectBtn.disabled = false;
+      return;
+    }
+    const meta = JSON.parse(res.value);
+    const fileCount = (meta.files || []).length;
+    if(!fileCount && !meta.hasText){
+      setReceiveStatus('Belum ada isi untuk kode ini.', 'error');
+      connectBtn.disabled = false;
+      return;
+    }
+
+    if(meta.hasText){
+      try{
+        const textRes = await window.storage.get(`transit:${code}:text`, true);
+        if(textRes && textRes.value){
+          const textData = JSON.parse(textRes.value);
+          renderReceiveText(textData.value);
+        }
+      } catch(err){ console.error(err); }
+    }
+
+    if(fileCount){
+      meta.files.forEach(f => renderReceiveRow(f, code));
+    }
+
+    const parts = [];
+    if(meta.hasText) parts.push('teks');
+    if(fileCount) parts.push(`${fileCount} file`);
+    setReceiveStatus(`Ditemukan: ${parts.join(' & ')}.`, 'ok');
+  } catch(err){
+    console.error(err);
+    setReceiveStatus('Terjadi kesalahan. Coba lagi.', 'error');
+  }
+  connectBtn.disabled = false;
+}
+
+function renderReceiveText(value){
+  const isUrl = /^https?:\/\/\S+$/i.test(value.trim());
+  const block = document.createElement('div');
+  block.className = 'received-text-block';
+  block.innerHTML = `
+    <div class="top"><span class="label">Pesan / teks</span></div>
+    <textarea class="received-text-content" id="receivedTextArea" readonly></textarea>
+    <div class="text-actions">
+      <button class="btn-copy" id="copyTextBtn">Salin teks</button>
+      ${isUrl ? `<a class="btn-open" id="openLinkBtn" href="${escapeHtml(value.trim())}" target="_blank" rel="noopener noreferrer">Buka link</a>` : ''}
+    </div>
+  `;
+  receiveTextContainer.appendChild(block);
+  document.getElementById('receivedTextArea').value = value;
+  document.getElementById('copyTextBtn').addEventListener('click', ()=>{
+    navigator.clipboard.writeText(value).then(()=>{
+      const btn = document.getElementById('copyTextBtn');
+      const old = btn.textContent;
+      btn.textContent = 'Tersalin ✓';
+      setTimeout(()=> btn.textContent = old, 1400);
+    });
+  });
+}
+
+function renderReceiveRow(fileMeta, code){
+  const row = document.createElement('div');
+  row.className = 'file-row';
+  const rid = 'r'+fileMeta.id;
+  row.innerHTML = `
+    <div class="top">
+      <div class="file-name">${escapeHtml(fileMeta.name)}</div>
+      <div class="file-meta">${fmtBytes(fileMeta.size)}</div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="fill-${rid}"></div></div>
+    <div class="file-status" id="status-${rid}">Siap diunduh</div>
+    <button class="dl-btn" id="btn-${rid}">Unduh file</button>
+  `;
+  receiveFileList.appendChild(row);
+  document.getElementById('btn-'+rid).addEventListener('click', ()=> downloadFile(fileMeta, code, rid));
+}
+
+async function downloadFile(fileMeta, code, rid){
+  const btn = document.getElementById('btn-'+rid);
+  const fill = document.getElementById('fill-'+rid);
+  const status = document.getElementById('status-'+rid);
+  btn.disabled = true;
+  status.textContent = 'Mengunduh…';
+  try{
+    const parts = new Array(fileMeta.chunks);
+    let done = 0;
+    // fetch chunks with limited concurrency to be gentle on storage rate limits
+    const CONCURRENCY = 3;
+    let nextIdx = 0;
+    async function worker(){
+      while(nextIdx < fileMeta.chunks){
+        const i = nextIdx++;
+        const res = await window.storage.get(`transit:${code}:${fileMeta.id}:chunk:${i}`, true);
+        parts[i] = res.value;
+        done++;
+        const pct = Math.round((done/fileMeta.chunks)*100);
+        fill.style.width = pct + '%';
+        status.textContent = `Mengunduh… ${pct}%`;
+      }
+    }
+    await Promise.all(Array.from({length: Math.min(CONCURRENCY, fileMeta.chunks)}, worker));
+
+    const base64 = parts.join('');
+    const dataUrl = `data:${fileMeta.type};base64,${base64}`;
+    const blobRes = await fetch(dataUrl);
+    const blob = await blobRes.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileMeta.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 4000);
+
+    fill.classList.add('done');
+    status.textContent = 'Terunduh ✓';
+    status.style.color = 'var(--teal)';
+  } catch(err){
+    console.error(err);
+    status.textContent = 'Gagal mengunduh. Coba lagi.';
+    status.style.color = 'var(--danger)';
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
